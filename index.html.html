@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SatishAiController — ZYRA AI Voice Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+  :root{
+    --bg:#060714;
+    --bg2:#0b0f26;
+    --panel:#0e1330;
+    --panel2:#131938;
+    --border:rgba(139,150,214,0.16);
+    --border-soft:rgba(139,150,214,0.08);
+    --cyan:#2ee6ff;
+    --magenta:#ff3da8;
+    --violet:#8b5cff;
+    --mint:#37ffb4;
+    --text:#eceffd;
+    --muted:#8791c4;
+    --muted2:#5d6699;
+    --display:'Space Grotesk',sans-serif;
+    --body:'Inter',sans-serif;
+    --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--body);
+    overflow-x:hidden;
+    position:relative;
+  }
+  body::before{
+    content:'';
+    position:fixed; inset:0;
+    background:
+      radial-gradient(ellipse 800px 500px at 15% -10%, rgba(139,92,255,0.20), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 90% 10%, rgba(46,230,255,0.14), transparent 60%),
+      radial-gradient(ellipse 900px 600px at 50% 100%, rgba(255,61,168,0.10), transparent 60%);
+    pointer-events:none;
+    z-index:0;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:0 28px; position:relative; z-index:1;}
+
+  /* ---------- NAV ---------- */
+  nav{
+    position:sticky; top:0; z-index:50;
+    backdrop-filter:blur(16px);
+    background:rgba(6,7,20,0.72);
+    border-bottom:1px solid var(--border-soft);
+  }
+  nav .wrap{display:flex; align-items:center; justify-content:space-between; height:72px;}
+  .brand{display:flex; align-items:center; gap:10px; font-family:var(--display); font-weight:700; font-size:18px; letter-spacing:0.2px;}
+  .brand .mark{
+    width:30px;height:30px;border-radius:9px;
+    background:conic-gradient(from 180deg, var(--cyan), var(--violet), var(--magenta), var(--cyan));
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 0 18px rgba(139,92,255,0.55);
+    font-size:12px; font-family:var(--mono); font-weight:700; color:#05060f;
+  }
+  .navlinks{display:flex; gap:34px; align-items:center;}
+  .navlinks a{color:var(--muted); text-decoration:none; font-size:14px; font-weight:500; transition:color .2s;}
+  .navlinks a:hover{color:var(--text);}
+  .nav-cta{display:flex; align-items:center; gap:14px;}
+  #navUserChip{display:none; align-items:center; gap:8px; font-size:13px; color:var(--muted); font-family:var(--mono);}
+  #navUserChip img{width:26px;height:26px;border-radius:50%; border:1px solid var(--border);}
+  .btn{
+    font-family:var(--body); font-weight:600; font-size:14px; cursor:pointer;
+    border:none; border-radius:10px; padding:11px 20px; transition:transform .15s, box-shadow .2s, opacity .2s;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{
+    background:linear-gradient(120deg, var(--cyan), var(--violet));
+    color:#04050d;
+    box-shadow:0 0 22px rgba(46,230,255,0.35);
+  }
+  .btn-primary:hover{box-shadow:0 0 32px rgba(46,230,255,0.55);}
+  .btn-ghost{
+    background:transparent; color:var(--text); border:1px solid var(--border);
+  }
+  .btn-ghost:hover{border-color:var(--cyan); color:var(--cyan);}
+  .btn-block{width:100%;}
+
+  @media (max-width:860px){ .navlinks{display:none;} }
+
+  /* ---------- HERO ---------- */
+  .hero{padding:96px 0 60px; position:relative;}
+  .hero .wrap{display:grid; grid-template-columns:1.05fr 0.95fr; gap:56px; align-items:center;}
+  @media (max-width:900px){ .hero .wrap{grid-template-columns:1fr;} .hero{padding:56px 0 40px;} }
+
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:12px; color:var(--mint);
+    background:rgba(55,255,180,0.08); border:1px solid rgba(55,255,180,0.28);
+    padding:6px 12px; border-radius:100px; margin-bottom:22px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--mint); box-shadow:0 0 8px var(--mint); animation:blink 1.6s infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
+
+  h1{
+    font-family:var(--display); font-weight:700;
+    font-size:clamp(34px,5vw,58px); line-height:1.06; letter-spacing:-0.5px;
+  }
+  h1 .grad{
+    background:linear-gradient(100deg, var(--cyan), var(--violet) 55%, var(--magenta));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .hero p.sub{color:var(--muted); font-size:17px; line-height:1.65; margin:22px 0 32px; max-width:520px;}
+  .hero-ctas{display:flex; gap:14px; flex-wrap:wrap;}
+  .trust-row{display:flex; gap:26px; margin-top:38px; flex-wrap:wrap;}
+  .trust-row div{font-family:var(--mono); font-size:12px; color:var(--muted2);}
+  .trust-row b{display:block; font-family:var(--display); font-size:20px; color:var(--text); font-weight:600;}
+
+  /* ---------- ORB ---------- */
+  .orb-stage{display:flex; align-items:center; justify-content:center; position:relative; height:420px;}
+  .orb-ring{
+    position:absolute; border-radius:50%;
+    border:1.5px solid transparent;
+  }
+  .orb-ring.r1{width:340px;height:340px; border-image:conic-gradient(from 0deg, var(--cyan), transparent 40%) 1; animation:spin 9s linear infinite;}
+  .orb-ring.r2{width:260px;height:260px; border-image:conic-gradient(from 180deg, var(--magenta), transparent 35%) 1; animation:spin 6s linear infinite reverse;}
+  .orb-ring.r3{width:400px;height:400px; border:1px dashed var(--border); animation:spin 26s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .orb-core{
+    width:168px;height:168px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, rgba(255,255,255,0.9), rgba(139,92,255,0.55) 40%, rgba(6,7,20,0.9) 75%);
+    box-shadow:0 0 70px rgba(139,92,255,0.65), 0 0 140px rgba(46,230,255,0.25), inset 0 0 40px rgba(0,0,0,0.4);
+    display:flex; align-items:center; justify-content:center;
+    animation:pulse 3.2s ease-in-out infinite;
+    z-index:2;
+  }
+  @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
+  .orb-core span{
+    font-family:var(--display); font-weight:700; font-size:15px; letter-spacing:3px; color:#0a0d1f;
+  }
+  .particle{position:absolute; width:4px;height:4px;border-radius:50%; background:var(--cyan); box-shadow:0 0 8px var(--cyan); opacity:0.8;}
+  .p1{top:10%; left:20%; animation:float 5s ease-in-out infinite;}
+  .p2{top:70%; left:12%; background:var(--magenta); box-shadow:0 0 8px var(--magenta); animation:float 6.5s ease-in-out infinite 1s;}
+  .p3{top:22%; left:85%; background:var(--mint); box-shadow:0 0 8px var(--mint); animation:float 4.5s ease-in-out infinite .5s;}
+  .p4{top:82%; left:78%; animation:float 7s ease-in-out infinite 2s;}
+  @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-18px);}}
+
+  /* ---------- SECTION SHELL ---------- */
+  section{padding:88px 0;}
+  .sec-head{text-align:center; max-width:640px; margin:0 auto 50px;}
+  .sec-eyebrow{font-family:var(--mono); font-size:12px; color:var(--cyan); letter-spacing:2px; text-transform:uppercase; margin-bottom:14px;}
+  .sec-head h2{font-family:var(--display); font-size:clamp(26px,3.4vw,38px); font-weight:700; letter-spacing:-0.3px;}
+  .sec-head p{color:var(--muted); margin-top:14px; font-size:15.5px; line-height:1.6;}
+
+  /* ---------- FEATURES ---------- */
+  .feat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:18px;}
+  @media (max-width:900px){.feat-grid{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:520px){.feat-grid{grid-template-columns:1fr;}}
+  .feat-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:26px 22px;
+    transition:transform .2s, border-color .2s;
+  }
+  .feat-card:hover{transform:translateY(-4px); border-color:var(--cyan);}
+  .feat-icon{width:38px;height:38px;border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:16px; font-size:18px;}
+  .feat-card h3{font-family:var(--display); font-size:16px; font-weight:600; margin-bottom:8px;}
+  .feat-card p{color:var(--muted); font-size:13.5px; line-height:1.55;}
+
+  /* ---------- STEPS ---------- */
+  .steps{display:grid; grid-template-columns:repeat(4,1fr); gap:18px; counter-reset:step;}
+  @media (max-width:900px){.steps{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:520px){.steps{grid-template-columns:1fr;}}
+  .step{position:relative; padding:28px 20px; background:linear-gradient(180deg, var(--panel), var(--bg2)); border:1px solid var(--border); border-radius:16px;}
+  .step .num{font-family:var(--mono); font-size:34px; font-weight:700; color:transparent; -webkit-text-stroke:1.4px var(--violet); margin-bottom:14px; display:block;}
+  .step h4{font-family:var(--display); font-size:15px; margin-bottom:8px; font-weight:600;}
+  .step p{color:var(--muted); font-size:13px; line-height:1.55;}
+
+  /* ---------- PRICING ---------- */
+  .price-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:22px;}
+  @media (max-width:900px){.price-grid{grid-template-columns:1fr; max-width:400px; margin:0 auto;}}
+  .price-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:20px; padding:34px 28px;
+    display:flex; flex-direction:column; position:relative; overflow:hidden;
+  }
+  .price-card.hi{border-color:var(--cyan); box-shadow:0 0 50px rgba(46,230,255,0.12);}
+  .price-card.hi::before{
+    content:'BEST VALUE'; position:absolute; top:16px; right:-34px; transform:rotate(45deg);
+    background:linear-gradient(120deg,var(--cyan),var(--violet)); color:#050611; font-family:var(--mono);
+    font-size:10px; font-weight:700; padding:5px 40px; letter-spacing:1px;
+  }
+  .price-tag{font-family:var(--mono); font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:1.5px;}
+  .price-title{font-family:var(--display); font-size:20px; font-weight:700; margin:10px 0 4px;}
+  .price-amt{font-family:var(--display); font-size:42px; font-weight:700; margin:14px 0 4px;}
+  .price-amt span{font-size:16px; color:var(--muted); font-weight:500;}
+  .price-old{font-family:var(--mono); font-size:13px; color:var(--muted2); text-decoration:line-through; margin-bottom:18px;}
+  .price-list{list-style:none; margin:18px 0 26px; flex:1;}
+  .price-list li{display:flex; gap:10px; align-items:flex-start; font-size:13.5px; color:var(--muted); margin-bottom:11px; line-height:1.4;}
+  .price-list li::before{content:'◆'; color:var(--mint); font-size:9px; margin-top:4px;}
+
+  /* ---------- FAQ / TERMS / GUIDE ---------- */
+  .accordion{max-width:820px; margin:0 auto; display:flex; flex-direction:column; gap:12px;}
+  .acc-item{background:var(--panel); border:1px solid var(--border); border-radius:14px; overflow:hidden;}
+  .acc-head{padding:18px 22px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-family:var(--display); font-weight:600; font-size:15px;}
+  .acc-head .chevron{color:var(--cyan); transition:transform .25s;}
+  .acc-item.open .chevron{transform:rotate(45deg);}
+  .acc-body{max-height:0; overflow:hidden; transition:max-height .3s ease;}
+  .acc-body-in{padding:0 22px 20px; color:var(--muted); font-size:13.5px; line-height:1.7;}
+  .acc-body-in ul{margin:8px 0 0 18px;}
+  .acc-body-in li{margin-bottom:6px;}
+
+  /* ---------- CONTACT ---------- */
+  .contact-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:20px; max-width:900px; margin:0 auto;}
+  @media (max-width:760px){.contact-grid{grid-template-columns:1fr;}}
+  .contact-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:26px; text-align:center;
+    text-decoration:none; color:var(--text); transition:transform .2s, border-color .2s;
+  }
+  .contact-card:hover{transform:translateY(-4px);}
+  .contact-icon{width:46px;height:46px;border-radius:50%; margin:0 auto 14px; display:flex; align-items:center; justify-content:center; font-size:20px;}
+  .contact-card h4{font-family:var(--display); font-size:15px; margin-bottom:6px;}
+  .contact-card p{color:var(--muted); font-size:12.5px;}
+
+  /* ---------- FOOTER ---------- */
+  footer{border-top:1px solid var(--border-soft); padding:40px 0; margin-top:20px;}
+  footer .wrap{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;}
+  footer p{color:var(--muted2); font-size:13px;}
+
+  /* ---------- MODALS ---------- */
+  .modal-bg{
+    position:fixed; inset:0; background:rgba(4,5,14,0.78); backdrop-filter:blur(6px);
+    display:none; align-items:center; justify-content:center; z-index:200; padding:20px;
+  }
+  .modal-bg.show{display:flex;}
+  .modal{
+    background:var(--bg2); border:1px solid var(--border); border-radius:20px; padding:34px;
+    width:100%; max-width:420px; position:relative; box-shadow:0 30px 90px rgba(0,0,0,0.6);
+  }
+  .modal-close{position:absolute; top:16px; right:18px; color:var(--muted); background:none; border:none; font-size:20px; cursor:pointer;}
+  .modal h3{font-family:var(--display); font-size:20px; margin-bottom:6px;}
+  .modal .modal-sub{color:var(--muted); font-size:13.5px; margin-bottom:24px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:12.5px; color:var(--muted); margin-bottom:7px; font-family:var(--mono);}
+  .field input{
+    width:100%; background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 14px;
+    color:var(--text); font-size:14px; font-family:var(--body);
+  }
+  .field input:focus{outline:none; border-color:var(--cyan);}
+  .divider{display:flex; align-items:center; gap:12px; margin:22px 0; color:var(--muted2); font-size:12px;}
+  .divider::before,.divider::after{content:''; flex:1; height:1px; background:var(--border);}
+  .order-summary{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:20px;}
+  .order-summary .row{display:flex; justify-content:space-between; font-size:13.5px; margin-bottom:8px; color:var(--muted);}
+  .order-summary .row.total{color:var(--text); font-weight:600; border-top:1px solid var(--border); padding-top:10px; margin-top:4px;}
+  .order-summary .row.total b{font-family:var(--mono); color:var(--cyan);}
+  .success-icon{width:64px;height:64px;border-radius:50%; background:rgba(55,255,180,0.12); border:1.5px solid var(--mint); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:28px;}
+  .oid-box{background:var(--panel); border:1px dashed var(--border); border-radius:10px; padding:12px 14px; font-family:var(--mono); font-size:13px; color:var(--mint); text-align:center; margin-bottom:20px; word-break:break-all;}
+  .plan-pick{display:flex; flex-direction:column; gap:10px; margin-bottom:20px;}
+  .plan-opt{
+    display:flex; justify-content:space-between; align-items:center; padding:13px 16px;
+    background:var(--panel); border:1px solid var(--border); border-radius:12px; cursor:pointer; font-size:13.5px;
+  }
+  .plan-opt.active{border-color:var(--cyan); background:rgba(46,230,255,0.06);}
+  .plan-opt b{font-family:var(--mono); color:var(--cyan);}
+
+  ::selection{background:var(--violet); color:#fff;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand"><span class="mark">SA</span>SatishAiController</div>
+    <div class="navlinks">
+      <a href="#pricing">Pricing</a>
+      <a href="#how">How it works</a>
+      <a href="#terms">Terms</a>
+      <a href="#guide">Guidelines</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <div class="nav-cta">
+      <div id="navUserChip"></div>
+      <button class="btn btn-primary" onclick="openLogin()" id="navLoginBtn">Sign in</button>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow"><span class="dot"></span> ZYRA v1.0.0 — Windows 10 / 11</div>
+      <h1>Your own <span class="grad">AI voice assistant</span>, running on your desktop.</h1>
+      <p class="sub">ZYRA sees your screen, controls your apps, and talks back — in real time. Built by SatishAiController. Buy once, own it forever, delivered straight to your Telegram.</p>
+      <div class="hero-ctas">
+        <button class="btn btn-primary" onclick="scrollToPricing()">Get ZYRA — from ₹49</button>
+        <a href="#how" class="btn btn-ghost">See how it works</a>
+      </div>
+      <div class="trust-row">
+        <div><b>48 hrs</b>Delivery window</div>
+        <div><b>1</b>One-time payment</div>
+        <div><b>Live</b>Telegram support</div>
+      </div>
+    </div>
+    <div class="orb-stage">
+      <div class="orb-ring r3"></div>
+      <div class="orb-ring r1"></div>
+      <div class="orb-ring r2"></div>
+      <div class="orb-core"><span>ZYRA</span></div>
+      <div class="particle p1"></div>
+      <div class="particle p2"></div>
+      <div class="particle p3"></div>
+      <div class="particle p4"></div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-eyebrow">Capabilities</div>
+      <h2>One assistant, full control</h2>
+      <p>ZYRA runs locally on your PC and talks to Gemini in real time — voice in, voice out, actions taken.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat-card"><div class="feat-icon" style="background:rgba(46,230,255,0.12); color:var(--cyan);">◐</div><h3>Live voice chat</h3><p>Natural back-and-forth conversation, interruptible, low latency.</p></div>
+      <div class="feat-card"><div class="feat-icon" style="background:rgba(255,61,168,0.12); color:var(--magenta);">▣</div><h3>Screen &amp; camera vision</h3><p>Share your screen or camera — ZYRA sees exactly what you see.</p></div>
+      <div class="feat-card"><div class="feat-icon" style="background:rgba(139,92,255,0.12); color:var(--violet);">⌘</div><h3>App &amp; file control</h3><p>Opens apps, finds files, manages your desktop by voice command.</p></div>
+      <div class="feat-card"><div class="feat-icon" style="background:rgba(55,255,180,0.12); color:var(--mint);">◈</div><h3>WebForge builder</h3><p>Describe a website out loud — ZYRA scaffolds and deploys it.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-eyebrow">Process</div>
+      <h2>From payment to first hello</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><span class="num">01</span><h4>Choose a plan</h4><p>Pick the app, the key, or the bundle below.</p></div>
+      <div class="step"><span class="num">02</span><h4>Sign in &amp; pay</h4><p>Google sign-in, then pay by UPI, card or QR via Razorpay.</p></div>
+      <div class="step"><span class="num">03</span><h4>Send your order ID</h4><p>One tap opens Telegram with your order pre-filled — just hit send.</p></div>
+      <div class="step"><span class="num">04</span><h4>Get delivered</h4><p>We verify and send your file/key on Telegram within 48 hours.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-eyebrow">Pricing</div>
+      <h2>Simple, one-time pricing</h2>
+      <p>No subscriptions. Pay once, use forever on one device.</p>
+    </div>
+    <div class="price-grid">
+      <div class="price-card">
+        <div class="price-tag">App only</div>
+        <div class="price-title">ZYRA.exe</div>
+        <div class="price-amt">₹199</div>
+        <ul class="price-list">
+          <li>Full ZYRA desktop app</li>
+          <li>All voice &amp; vision features</li>
+          <li>Delivered via Telegram, 48 hrs</li>
+          <li>Bring your own free Gemini API key</li>
+        </ul>
+        <button class="btn btn-ghost btn-block" onclick="startCheckout('exe')">Buy the app</button>
+      </div>
+      <div class="price-card hi">
+        <div class="price-tag">App + Key</div>
+        <div class="price-title">Full Bundle</div>
+        <div class="price-old">₹248</div>
+        <div class="price-amt">₹229</div>
+        <ul class="price-list">
+          <li>ZYRA.exe + activation key</li>
+          <li>Ready to run out of the box</li>
+          <li>Priority delivery</li>
+          <li>Best value — save ₹19</li>
+        </ul>
+        <button class="btn btn-primary btn-block" onclick="startCheckout('bundle')">Buy the bundle</button>
+      </div>
+      <div class="price-card">
+        <div class="price-tag">Key only</div>
+        <div class="price-title">Activation key</div>
+        <div class="price-amt">₹49</div>
+        <ul class="price-list">
+          <li>For existing ZYRA installs</li>
+          <li>Unlocks full features</li>
+          <li>One key, one device</li>
+          <li>Lifetime — no renewal</li>
+        </ul>
+        <button class="btn btn-ghost btn-block" onclick="startCheckout('key')">Buy the key</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="terms">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-eyebrow">Legal</div>
+      <h2>Terms &amp; Conditions</h2>
+    </div>
+    <div class="accordion" id="termsAcc">
+      <div class="acc-item">
+        <div class="acc-head">What you're buying <span class="chevron">+</span></div>
+        <div class="acc-body"><div class="acc-body-in">You are purchasing a personal, non-transferable license to run ZYRA on a single device, and/or a single activation key tied to that device. This is a digital product — no physical item is shipped.</div></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-head">Delivery <span class="chevron">+</span></div>
+        <div class="acc-body"><div class="acc-body-in">After payment, send your order ID on Telegram using the button shown. Orders are verified and delivered within <b>48 hours</b>. If you don't hear back within that window, message us again with your order ID.</div></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-head">Refunds <span class="chevron">+</span></div>
+        <div class="acc-body"><div class="acc-body-in">Once the file or key has been delivered, the sale is final — no refunds, since the product cannot be "returned". Refunds are only issued if we fail to deliver within 48 hours of a verified payment and do not respond to follow-up.</div></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-head">License restrictions <span class="chevron">+</span></div>
+        <div class="acc-body"><div class="acc-body-in"><ul>
+          <li>One key = one device. Sharing a key across multiple devices may deactivate it.</li>
+          <li>Reselling, redistributing, or re-uploading the app or key elsewhere is not permitted.</li>
+          <li>Reverse-engineering the application is not permitted.</li>
+        </ul></div></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-head">Third-party costs <span class="chevron">+</span></div>
+        <div class="acc-body"><div class="acc-body-in">ZYRA connects to Google's Gemini API using your own free API key. Any usage limits, downtime, or pricing changes on Google's side are outside our control.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="guide">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-eyebrow">Setup</div>
+      <h2>Guidelines — getting started</h2>
+    </div>
+    <div class="accordion" id="guideAcc">
+      <div class="acc-item">
+        <div class="acc-head">1. Install &amp; run <span class="chevron">+</span></div>
+        <div class="acc-body"><div class="acc-body-in">Extract the ZIP you receive on Telegram and double-click <b>ZYRA.exe</b>. First launch can take a few seconds — that's normal.</div></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-head">2. Add your free Gemini API key <span class="chevron">+</span></div>
+        <div class="acc-body"><div class="acc-body-in">Get a free key at <b>aistudio.google.com/app/apikey</b> and paste it into ZYRA's API setup screen on first run. This key is yours — we never see it.</div></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-head">3. Enter your activation key <span class="chevron">+</span></div>
+        <div class="acc-body"><div class="acc-body-in">If you bought the key or bundle, paste your activation key when prompted. It unlocks on this device only.</div></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-head">4. Use headphones <span class="chevron">+</span></div>
+        <div class="acc-body"><div class="acc-body-in">For the smoothest conversations, use headphones instead of speakers — it stops ZYRA from hearing her own voice through the mic.</div></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-head">5. Allow mic &amp; camera access <span class="chevron">+</span></div>
+        <div class="acc-body"><div class="acc-body-in">Windows will ask for microphone (and camera, if used) permission the first time — allow it so ZYRA can hear and see you.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="contact">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-eyebrow">Support</div>
+      <h2>Talk to us</h2>
+      <p>Fastest response is on Telegram — that's also where your order gets delivered.</p>
+    </div>
+    <div class="contact-grid">
+      <a class="contact-card" href="https://t.me/satishai21" target="_blank">
+        <div class="contact-icon" style="background:rgba(46,230,255,0.12); color:var(--cyan);">✈</div>
+        <h4>Telegram</h4><p>@satishai21 — fastest reply</p>
+      </a>
+      <a class="contact-card" href="mailto:yadavsatishkumar430@gmail.com">
+        <div class="contact-icon" style="background:rgba(255,61,168,0.12); color:var(--magenta);">✉</div>
+        <h4>Email</h4><p>yadavsatishkumar430@gmail.com</p>
+      </a>
+      <a class="contact-card" href="https://www.facebook.com/SatishToriyahiVlog" target="_blank" id="fbLink">
+        <div class="contact-icon" style="background:rgba(139,92,255,0.12); color:var(--violet);">f</div>
+        <h4>Facebook</h4><p>Follow for updates</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="brand" style="font-size:15px;"><span class="mark" style="width:24px;height:24px;font-size:10px;">SA</span>SatishAiController</div>
+    <p>© 2026 SatishAiController · Built with ZYRA</p>
+  </div>
+</footer>
+
+<!-- LOGIN MODAL -->
+<div class="modal-bg" id="loginModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
+    <h3>Sign in to continue</h3>
+    <p class="modal-sub">We use Google Sign-in to verify your Gmail — quick and secure, no password needed.</p>
+    <button class="btn btn-primary btn-block" onclick="signInWithGoogle()">
+      Continue with Google
+    </button>
+    <div class="field" style="margin-top:22px;">
+      <label>Contact mobile number</label>
+      <input type="tel" id="mobileInput" placeholder="For delivery contact only">
+    </div>
+  </div>
+</div>
+
+<!-- PAYMENT MODAL -->
+<div class="modal-bg" id="payModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('payModal')">✕</button>
+    <h3>Confirm your order</h3>
+    <p class="modal-sub">Signed in as <span id="payUserEmail" style="color:var(--cyan);"></span></p>
+    <div class="plan-pick" id="planPick"></div>
+    <div class="order-summary">
+      <div class="row"><span>Item</span><span id="sumItem"></span></div>
+      <div class="row total"><span>Total</span><b id="sumTotal"></b></div>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="payNow()">Pay with Razorpay</button>
+  </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div class="modal-bg" id="successModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('successModal')">✕</button>
+    <div class="success-icon">✓</div>
+    <h3 style="text-align:center;">Payment received</h3>
+    <p class="modal-sub" style="text-align:center;">Save this order ID — you'll need it for delivery.</p>
+    <div class="oid-box" id="orderIdBox"></div>
+    <button class="btn btn-primary btn-block" id="telegramSendBtn" style="margin-bottom:10px;">Send order on Telegram</button>
+    <p style="text-align:center; color:var(--muted2); font-size:12px;">Delivered within 48 hours after we verify your message.</p>
+  </div>
+</div>
+
+<script>
+  // ---------- Firebase ----------
+  const firebaseConfig = {
+    apiKey: "AIzaSyBH4_Lv1wwFZRyfdiSDu0TI6gkHcKpRIiY",
+    authDomain: "zair-d011d.firebaseapp.com",
+    projectId: "zair-d011d",
+    storageBucket: "zair-d011d.firebasestorage.app",
+    messagingSenderId: "1013512323964",
+    appId: "1:1013512323964:web:265c09b4b3dc75bcdbdaf9"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+
+  let currentUser = null;
+  let pendingPlan = "exe"; // exe | key | bundle
+  const PLANS = {
+    exe:    { label: "ZYRA.exe (app only)",     amount: 199 },
+    key:    { label: "Activation key only",     amount: 49  },
+    bundle: { label: "App + Activation key",    amount: 229 }
+  };
+
+  auth.onAuthStateChanged(user=>{
+    currentUser = user;
+    const chip = document.getElementById('navUserChip');
+    const loginBtn = document.getElementById('navLoginBtn');
+    if(user){
+      chip.style.display = 'flex';
+      chip.innerHTML = `<img src="${user.photoURL||''}" onerror="this.style.display='none'"> ${user.email}`;
+      loginBtn.textContent = 'Sign out';
+      loginBtn.onclick = ()=> auth.signOut();
+    } else {
+      chip.style.display = 'none';
+      loginBtn.textContent = 'Sign in';
+      loginBtn.onclick = openLogin;
+    }
+  });
+
+  function openLogin(){ document.getElementById('loginModal').classList.add('show'); }
+  function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+  function scrollToPricing(){ document.getElementById('pricing').scrollIntoView({behavior:'smooth'}); }
+
+  function signInWithGoogle(){
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).then(res=>{
+      const mobile = document.getElementById('mobileInput').value;
+      if(mobile) sessionStorage.setItem('zyra_mobile', mobile);
+      closeModal('loginModal');
+    }).catch(err=>{
+      alert('Sign-in failed: ' + err.message);
+    });
+  }
+
+  function startCheckout(plan){
+    pendingPlan = plan;
+    if(!currentUser){ openLogin(); return; }
+    openPayModal();
+  }
+
+  function openPayModal(){
+    document.getElementById('payUserEmail').textContent = currentUser.email;
+    const pick = document.getElementById('planPick');
+    pick.innerHTML = '';
+    Object.keys(PLANS).forEach(key=>{
+      const p = PLANS[key];
+      const div = document.createElement('div');
+      div.className = 'plan-opt' + (key===pendingPlan ? ' active':'');
+      div.innerHTML = `<span>${p.label}</span><b>₹${p.amount}</b>`;
+      div.onclick = ()=>{ pendingPlan = key; renderSummary(); document.querySelectorAll('.plan-opt').forEach(e=>e.classList.remove('active')); div.classList.add('active'); };
+      pick.appendChild(div);
+    });
+    renderSummary();
+    document.getElementById('payModal').classList.add('show');
+  }
+
+  function renderSummary(){
+    const p = PLANS[pendingPlan];
+    document.getElementById('sumItem').textContent = p.label;
+    document.getElementById('sumTotal').textContent = '₹' + p.amount;
+  }
+
+  function payNow(){
+    const plan = PLANS[pendingPlan];
+    const options = {
+      // ⚠️ Replace with your real Razorpay Key ID (test or live)
+      key: "rzp_test_YOUR_KEY_ID_HERE",
+      amount: plan.amount * 100, // paise
+      currency: "INR",
+      name: "SatishAiController",
+      description: plan.label,
+      prefill: { email: currentUser.email, contact: sessionStorage.getItem('zyra_mobile')||'' },
+      theme: { color: "#2ee6ff" },
+      handler: function(response){
+        showSuccess(response.razorpay_payment_id, plan);
+      }
+    };
+    const rzp = new Razorpay(options);
+    rzp.open();
+  }
+
+  function showSuccess(paymentId, plan){
+    closeModal('payModal');
+    document.getElementById('orderIdBox').textContent = paymentId;
+
+    const mobile = sessionStorage.getItem('zyra_mobile') || 'not provided';
+    const msgText =
+`New ZYRA order
+Item: ${plan.label}
+Amount: ₹${plan.amount}
+Order ID: ${paymentId}
+Email: ${currentUser.email}
+Mobile: ${mobile}`;
+
+    // Manual DM link — buyer taps Send in Telegram themselves
+    const tgUrl = `https://t.me/satishai21?text=${encodeURIComponent(msgText)}`;
+    document.getElementById('telegramSendBtn').onclick = ()=> window.open(tgUrl, '_blank');
+
+    // Automatic seller notification via bot (see setup note below in chat reply)
+    notifySellerBot(msgText);
+
+    document.getElementById('successModal').classList.add('show');
+  }
+
+  function notifySellerBot(text){
+    const BOT_TOKEN = "8982966423:AAEpjZXGv7RSkvNjcwGrqCstlqiN1Anz1AA";
+    const CHAT_ID = "6794395531";
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id: CHAT_ID, text: "🟢 " + text })
+    }).catch(()=>{ /* silent fail — buyer's manual Telegram button still works as backup */ });
+  }
+
+  // ---------- Accordions ----------
+  document.querySelectorAll('.acc-head').forEach(head=>{
+    head.addEventListener('click', ()=>{
+      const item = head.parentElement;
+      const body = item.querySelector('.acc-body');
+      const isOpen = item.classList.contains('open');
+      item.parentElement.querySelectorAll('.acc-item').forEach(i=>{
+        i.classList.remove('open');
+        i.querySelector('.acc-body').style.maxHeight = null;
+      });
+      if(!isOpen){
+        item.classList.add('open');
+        body.style.maxHeight = body.scrollHeight + 40 + 'px';
+      }
+    });
+  });
+</script>
+</body>
+</html>
